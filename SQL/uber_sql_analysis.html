@@ -1,0 +1,907 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Uber SQL Analysis Report</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@300;400;500;700&family=Lora:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+:root {
+  --ink:     #0C0C0E;
+  --paper:   #F7F4EE;
+  --cream:   #EDE9E0;
+  --rule:    #D6D0C4;
+  --dim:     #8C8578;
+  --red:     #C0392B;
+  --amber:   #D97706;
+  --green:   #1A7A4A;
+  --blue:    #1E4FA0;
+  --tag-bg:  #1C1C1E;
+  --tag-fg:  #F7F4EE;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: 'Lora', Georgia, serif;
+  line-height: 1.7;
+  font-size: 15px;
+}
+
+/* ── PAGE MASTHEAD ─────────────────────────────────────────── */
+.masthead {
+  background: var(--ink);
+  color: var(--paper);
+  padding: 64px 60px 52px;
+  position: relative;
+  overflow: hidden;
+}
+.masthead::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    90deg,
+    transparent,
+    transparent 59px,
+    rgba(247,244,238,.04) 59px,
+    rgba(247,244,238,.04) 60px
+  );
+}
+.masthead-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 5px;
+  text-transform: uppercase;
+  color: var(--amber);
+  margin-bottom: 22px;
+}
+.masthead h1 {
+  font-family: 'Syne', sans-serif;
+  font-size: clamp(36px, 5vw, 62px);
+  font-weight: 800;
+  line-height: 1.0;
+  letter-spacing: -2px;
+  margin-bottom: 20px;
+  position: relative;
+}
+.masthead h1 em {
+  font-style: normal;
+  color: var(--amber);
+}
+.masthead-sub {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: rgba(247,244,238,.5);
+  letter-spacing: 1px;
+  margin-bottom: 40px;
+}
+
+.kpi-strip {
+  display: flex;
+  gap: 0;
+  border-top: 1px solid rgba(247,244,238,.12);
+  padding-top: 32px;
+  flex-wrap: wrap;
+}
+.kpi {
+  flex: 1;
+  min-width: 140px;
+  padding: 0 32px 0 0;
+  border-right: 1px solid rgba(247,244,238,.12);
+  margin-right: 32px;
+}
+.kpi:last-child { border-right: none; }
+.kpi-val {
+  font-family: 'Syne', sans-serif;
+  font-size: 30px;
+  font-weight: 800;
+  color: var(--paper);
+  line-height: 1;
+  margin-bottom: 4px;
+}
+.kpi-val.danger  { color: #EF7A6D; }
+.kpi-val.warn    { color: var(--amber); }
+.kpi-val.good    { color: #5DD99B; }
+.kpi-lbl {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: rgba(247,244,238,.45);
+}
+
+/* ── LAYOUT ────────────────────────────────────────────────── */
+.body-wrap {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 0 48px 100px;
+}
+
+/* ── QUERY BLOCKS ──────────────────────────────────────────── */
+.query-section {
+  margin-top: 72px;
+  animation: fadeUp .4s ease both;
+}
+@keyframes fadeUp {
+  from { opacity:0; transform: translateY(16px); }
+  to   { opacity:1; transform: translateY(0); }
+}
+
+.query-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 20px;
+  margin-bottom: 20px;
+  padding-bottom: 20px;
+  border-bottom: 2px solid var(--ink);
+}
+.qnum {
+  font-family: 'Syne', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  background: var(--ink);
+  color: var(--paper);
+  padding: 5px 12px;
+  letter-spacing: 1px;
+  flex-shrink: 0;
+  margin-top: 4px;
+}
+.query-meta { flex: 1; }
+.query-title {
+  font-family: 'Syne', sans-serif;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -.4px;
+  line-height: 1.2;
+  margin-bottom: 4px;
+}
+.query-desc {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--dim);
+  letter-spacing: .5px;
+}
+
+/* ── SQL CODE BLOCK ────────────────────────────────────────── */
+.sql-wrap {
+  background: #14131A;
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: 20px;
+  border: 1px solid #2A2830;
+}
+.sql-bar {
+  background: #1E1C26;
+  padding: 9px 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid #2A2830;
+}
+.dot { width: 10px; height: 10px; border-radius: 50%; }
+.d1 { background: #FF5F56; }
+.d2 { background: #FFBD2E; }
+.d3 { background: #27C93F; }
+.sql-lang {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: rgba(255,255,255,.3);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin-left: auto;
+}
+.sql-code {
+  padding: 20px 24px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12.5px;
+  line-height: 1.9;
+  color: #CDD6F4;
+  overflow-x: auto;
+  white-space: pre;
+}
+.kw  { color: #CBA6F7; font-weight: 500; }
+.fn  { color: #89B4FA; }
+.str { color: #A6E3A1; }
+.cm  { color: #585B70; font-style: italic; }
+.op  { color: #F38BA8; }
+.num { color: #FAB387; }
+
+/* ── RESULTS TABLE ─────────────────────────────────────────── */
+.results-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  margin-bottom: 24px;
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+thead tr {
+  background: var(--ink);
+  color: var(--paper);
+}
+thead th {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  padding: 12px 16px;
+  text-align: left;
+  white-space: nowrap;
+  font-weight: 500;
+}
+tbody tr { border-bottom: 1px solid var(--rule); }
+tbody tr:last-child { border-bottom: none; }
+tbody tr:nth-child(even) { background: var(--cream); }
+tbody tr:hover { background: #EAE5D8; }
+tbody td {
+  padding: 10px 16px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: var(--ink);
+  white-space: nowrap;
+}
+.cell-good    { color: var(--green); font-weight: 700; }
+.cell-warn    { color: var(--amber); font-weight: 700; }
+.cell-danger  { color: var(--red);   font-weight: 700; }
+.cell-neutral { color: var(--blue);  font-weight: 700; }
+.cell-bold    { font-weight: 700; }
+
+/* ── INSIGHT BOX ───────────────────────────────────────────── */
+.insight-box {
+  border-left: 4px solid var(--ink);
+  padding: 20px 24px;
+  background: var(--cream);
+  border-radius: 0 3px 3px 0;
+  margin-top: 4px;
+}
+.insight-box .insight-label {
+  font-family: 'Syne', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--dim);
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.insight-box .insight-label::before {
+  content: '';
+  display: inline-block;
+  width: 18px;
+  height: 2px;
+  background: var(--ink);
+}
+.insight-box ul {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.insight-box ul li {
+  font-family: 'Lora', serif;
+  font-size: 14px;
+  line-height: 1.55;
+  padding-left: 18px;
+  position: relative;
+  color: #2a2624;
+}
+.insight-box ul li::before {
+  content: '→';
+  position: absolute;
+  left: 0;
+  color: var(--dim);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+}
+.insight-box ul li strong { color: var(--ink); }
+.insight-box ul li.flag-danger::before  { color: var(--red); content: '⚠'; }
+.insight-box ul li.flag-good::before    { color: var(--green); content: '✓'; }
+.insight-box ul li.flag-warn::before    { color: var(--amber); content: '●'; }
+
+/* ── DIVIDER ───────────────────────────────────────────────── */
+.section-divider {
+  height: 1px;
+  background: linear-gradient(90deg, var(--ink) 0%, var(--rule) 40%, transparent 100%);
+  margin: 60px 0 0;
+}
+
+/* ── ROW LABELS (pill tags) ────────────────────────────────── */
+.pill {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 2px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  font-family: 'JetBrains Mono', monospace;
+}
+.pill-red    { background: #FDECEA; color: var(--red); }
+.pill-amber  { background: #FEF3C7; color: var(--amber); }
+.pill-green  { background: #D1FAE5; color: var(--green); }
+.pill-blue   { background: #DBEAFE; color: var(--blue); }
+
+/* ── FOOTER ────────────────────────────────────────────────── */
+.report-footer {
+  text-align: center;
+  padding: 40px 0;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--dim);
+  letter-spacing: 1px;
+  border-top: 1px solid var(--rule);
+  margin-top: 80px;
+}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════
+     MASTHEAD
+═══════════════════════════════════════════════════════ -->
+<div class="masthead">
+  <div class="masthead-label">● SQL Analysis Report &nbsp;·&nbsp; DuckDB &nbsp;·&nbsp; Jul 2016</div>
+  <h1>Uber Rides<br><em>SQL Intelligence</em></h1>
+  <div class="masthead-sub">6,745 records &nbsp;·&nbsp; 8 queries &nbsp;·&nbsp; Cleaned Dataset &nbsp;·&nbsp; Jul 11–15 2016</div>
+  <div class="kpi-strip">
+    <div class="kpi"><div class="kpi-val">6,745</div><div class="kpi-lbl">Total Requests</div></div>
+    <div class="kpi"><div class="kpi-val good">41.97%</div><div class="kpi-lbl">Completion Rate</div></div>
+    <div class="kpi"><div class="kpi-val danger">39.29%</div><div class="kpi-lbl">No-Car Rate</div></div>
+    <div class="kpi"><div class="kpi-val warn">18.74%</div><div class="kpi-lbl">Cancellation Rate</div></div>
+    <div class="kpi"><div class="kpi-val danger">80.4%</div><div class="kpi-lbl">Peak Failure Rate</div></div>
+  </div>
+</div>
+
+<div class="body-wrap">
+
+<!-- ═══════════════════════════════════════════════════════
+     QUERY 1
+═══════════════════════════════════════════════════════ -->
+<div class="query-section">
+  <div class="query-header">
+    <div class="qnum">Q 01</div>
+    <div class="query-meta">
+      <div class="query-title">Overall Trip Status Distribution</div>
+      <div class="query-desc">Baseline health · How requests resolve across all 6,745 rides</div>
+    </div>
+  </div>
+
+  <div class="sql-wrap">
+    <div class="sql-bar">
+      <div class="dot d1"></div><div class="dot d2"></div><div class="dot d3"></div>
+      <div class="sql-lang">SQL — DuckDB</div>
+    </div>
+    <div class="sql-code"><span class="kw">SELECT</span>
+    Status,
+    <span class="fn">COUNT</span>(<span class="op">*</span>) <span class="kw">AS</span> total_requests,
+    <span class="fn">ROUND</span>(<span class="fn">COUNT</span>(<span class="op">*</span>) <span class="op">*</span> <span class="num">100.0</span> <span class="op">/</span> <span class="fn">SUM</span>(<span class="fn">COUNT</span>(<span class="op">*</span>)) <span class="kw">OVER</span>(), <span class="num">2</span>) <span class="kw">AS</span> pct_share,
+    <span class="fn">SUM</span>(<span class="fn">COUNT</span>(<span class="op">*</span>)) <span class="kw">OVER</span>() <span class="kw">AS</span> grand_total
+<span class="kw">FROM</span> rides
+<span class="kw">GROUP BY</span> Status
+<span class="kw">ORDER BY</span> total_requests <span class="kw">DESC</span>;</div>
+  </div>
+
+  <div class="results-wrap">
+    <table>
+      <thead>
+        <tr><th>Status</th><th>Total Requests</th><th>Pct Share %</th><th>Grand Total</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><span class="pill pill-green">Trip Completed</span></td><td class="cell-good">2,831</td><td class="cell-good">41.97%</td><td>6,745</td></tr>
+        <tr><td><span class="pill pill-red">No Cars Available</span></td><td class="cell-danger">2,650</td><td class="cell-danger">39.29%</td><td>6,745</td></tr>
+        <tr><td><span class="pill pill-amber">Cancelled</span></td><td class="cell-warn">1,264</td><td class="cell-warn">18.74%</td><td>6,745</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="insight-box">
+    <div class="insight-label">Insights Drawn</div>
+    <ul>
+      <li class="flag-danger">Only <strong>41.97%</strong> of all ride requests result in a completed trip — fewer than 1 in 2 requests reaches its destination.</li>
+      <li class="flag-danger">The combined failure rate is <strong>58.03%</strong>. Of this, supply-side failure (No Cars) accounts for <strong>39.29%</strong> — making it the single largest source of unmet demand, nearly double the cancellation rate.</li>
+      <li class="flag-warn">Cancellations at <strong>18.74%</strong> represent a demand-side or driver-acceptance problem — the car existed but the trip still didn't happen, pointing to pricing, ETA, or driver refusal issues.</li>
+      <li>This 3-way split sets the benchmark: any operational improvement must address supply gap first, then cancellation behavior, to meaningfully lift the 42% baseline.</li>
+    </ul>
+  </div>
+</div>
+<div class="section-divider"></div>
+
+<!-- ═══════════════════════════════════════════════════════
+     QUERY 2
+═══════════════════════════════════════════════════════ -->
+<div class="query-section">
+  <div class="query-header">
+    <div class="qnum">Q 02</div>
+    <div class="query-meta">
+      <div class="query-title">Demand & Outcome Breakdown by Pickup Location</div>
+      <div class="query-desc">Airport vs City · Volume, completion, and failure mode comparison</div>
+    </div>
+  </div>
+
+  <div class="sql-wrap">
+    <div class="sql-bar">
+      <div class="dot d1"></div><div class="dot d2"></div><div class="dot d3"></div>
+      <div class="sql-lang">SQL — DuckDB</div>
+    </div>
+    <div class="sql-code"><span class="kw">SELECT</span>
+    <span class="str">"Pickup point"</span>,
+    <span class="fn">COUNT</span>(<span class="op">*</span>)                                                               <span class="kw">AS</span> total_requests,
+    <span class="fn">SUM</span>(<span class="kw">CASE WHEN</span> Status <span class="op">=</span> <span class="str">'Trip Completed'</span>    <span class="kw">THEN</span> <span class="num">1</span> <span class="kw">ELSE</span> <span class="num">0</span> <span class="kw">END</span>)   <span class="kw">AS</span> completed,
+    <span class="fn">SUM</span>(<span class="kw">CASE WHEN</span> Status <span class="op">=</span> <span class="str">'No Cars Available'</span> <span class="kw">THEN</span> <span class="num">1</span> <span class="kw">ELSE</span> <span class="num">0</span> <span class="kw">END</span>)   <span class="kw">AS</span> no_cars,
+    <span class="fn">SUM</span>(<span class="kw">CASE WHEN</span> Status <span class="op">=</span> <span class="str">'Cancelled'</span>         <span class="kw">THEN</span> <span class="num">1</span> <span class="kw">ELSE</span> <span class="num">0</span> <span class="kw">END</span>)   <span class="kw">AS</span> cancelled,
+    <span class="fn">ROUND</span>(<span class="fn">SUM</span>(<span class="kw">CASE WHEN</span> Status <span class="op">=</span> <span class="str">'Trip Completed'</span>    <span class="kw">THEN</span> <span class="num">1</span> <span class="kw">ELSE</span> <span class="num">0</span> <span class="kw">END</span>) <span class="op">*</span> <span class="num">100.0</span> <span class="op">/</span> <span class="fn">COUNT</span>(<span class="op">*</span>), <span class="num">1</span>) <span class="kw">AS</span> completion_rate_pct,
+    <span class="fn">ROUND</span>(<span class="fn">SUM</span>(<span class="kw">CASE WHEN</span> Status <span class="op">=</span> <span class="str">'No Cars Available'</span> <span class="kw">THEN</span> <span class="num">1</span> <span class="kw">ELSE</span> <span class="num">0</span> <span class="kw">END</span>) <span class="op">*</span> <span class="num">100.0</span> <span class="op">/</span> <span class="fn">COUNT</span>(<span class="op">*</span>), <span class="num">1</span>) <span class="kw">AS</span> no_car_rate_pct
+<span class="kw">FROM</span> rides
+<span class="kw">GROUP BY</span> <span class="str">"Pickup point"</span>
+<span class="kw">ORDER BY</span> total_requests <span class="kw">DESC</span>;</div>
+  </div>
+
+  <div class="results-wrap">
+    <table>
+      <thead>
+        <tr><th>Pickup Point</th><th>Total Requests</th><th>Completed</th><th>No Cars</th><th>Cancelled</th><th>Completion Rate %</th><th>No Car Rate %</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="cell-bold">City</td>
+          <td>3,507</td>
+          <td class="cell-good">1,504</td>
+          <td>937</td>
+          <td class="cell-warn">1,066</td>
+          <td class="cell-good">42.9%</td>
+          <td>26.7%</td>
+        </tr>
+        <tr>
+          <td class="cell-bold">Airport</td>
+          <td>3,238</td>
+          <td class="cell-good">1,327</td>
+          <td class="cell-danger">1,713</td>
+          <td>198</td>
+          <td>41.0%</td>
+          <td class="cell-danger">52.9%</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="insight-box">
+    <div class="insight-label">Insights Drawn</div>
+    <ul>
+      <li class="flag-danger">Airport's No-Car rate of <strong>52.9%</strong> means over half of all Airport pickup requests receive no driver — a structural supply crisis, not a random spike.</li>
+      <li class="flag-warn">City's primary failure mode is <strong>cancellations (1,066 cases, 30.4%)</strong> vs Airport's cancellations (198, 6.1%). City drivers cancel 5× more often than Airport drivers, suggesting route preference or pricing friction.</li>
+      <li class="flag-good">Despite higher no-car failures, Airport completion rate (41.0%) is nearly on par with City (42.9%) — when a driver is available at Airport, the ride almost always completes.</li>
+      <li>The two locations require entirely different operational fixes: <strong>Airport needs supply injection</strong>, City needs <strong>cancellation root-cause analysis</strong>.</li>
+    </ul>
+  </div>
+</div>
+<div class="section-divider"></div>
+
+<!-- ═══════════════════════════════════════════════════════
+     QUERY 3
+═══════════════════════════════════════════════════════ -->
+<div class="query-section">
+  <div class="query-header">
+    <div class="qnum">Q 03</div>
+    <div class="query-meta">
+      <div class="query-title">24-Hour Demand Cycle by Status</div>
+      <div class="query-desc">Hourly rhythm · Identifies peak demand, cancellation spikes, and no-car surges across the full day</div>
+    </div>
+  </div>
+
+  <div class="sql-wrap">
+    <div class="sql-bar">
+      <div class="dot d1"></div><div class="dot d2"></div><div class="dot d3"></div>
+      <div class="sql-lang">SQL — DuckDB</div>
+    </div>
+    <div class="sql-code"><span class="kw">SELECT</span>
+    <span class="str">"Request hour"</span>,
+    <span class="fn">COUNT</span>(<span class="op">*</span>)                                                                  <span class="kw">AS</span> total_requests,
+    <span class="fn">SUM</span>(<span class="kw">CASE WHEN</span> Status <span class="op">=</span> <span class="str">'Trip Completed'</span>    <span class="kw">THEN</span> <span class="num">1</span> <span class="kw">ELSE</span> <span class="num">0</span> <span class="kw">END</span>)      <span class="kw">AS</span> completed,
+    <span class="fn">SUM</span>(<span class="kw">CASE WHEN</span> Status <span class="op">=</span> <span class="str">'No Cars Available'</span> <span class="kw">THEN</span> <span class="num">1</span> <span class="kw">ELSE</span> <span class="num">0</span> <span class="kw">END</span>)      <span class="kw">AS</span> no_cars,
+    <span class="fn">SUM</span>(<span class="kw">CASE WHEN</span> Status <span class="op">=</span> <span class="str">'Cancelled'</span>         <span class="kw">THEN</span> <span class="num">1</span> <span class="kw">ELSE</span> <span class="num">0</span> <span class="kw">END</span>)      <span class="kw">AS</span> cancelled,
+    <span class="fn">ROUND</span>(<span class="fn">SUM</span>(<span class="kw">CASE WHEN</span> Status <span class="op">=</span> <span class="str">'No Cars Available'</span> <span class="kw">THEN</span> <span class="num">1</span> <span class="kw">ELSE</span> <span class="num">0</span> <span class="kw">END</span>) <span class="op">*</span> <span class="num">100.0</span> <span class="op">/</span> <span class="fn">COUNT</span>(<span class="op">*</span>), <span class="num">1</span>) <span class="kw">AS</span> no_car_pct,
+    <span class="fn">ROUND</span>(<span class="fn">SUM</span>(<span class="kw">CASE WHEN</span> Status <span class="op">=</span> <span class="str">'Cancelled'</span>         <span class="kw">THEN</span> <span class="num">1</span> <span class="kw">ELSE</span> <span class="num">0</span> <span class="kw">END</span>) <span class="op">*</span> <span class="num">100.0</span> <span class="op">/</span> <span class="fn">COUNT</span>(<span class="op">*</span>), <span class="num">1</span>) <span class="kw">AS</span> cancel_pct
+<span class="kw">FROM</span> rides
+<span class="kw">GROUP BY</span> <span class="str">"Request hour"</span>
+<span class="kw">ORDER BY</span> <span class="str">"Request hour"</span>;</div>
+  </div>
+
+  <div class="results-wrap">
+    <table>
+      <thead>
+        <tr><th>Hour</th><th>Total Requests</th><th>Completed</th><th>No Cars</th><th>Cancelled</th><th>No Car %</th><th>Cancel %</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>0</td><td>99</td><td>40</td><td class="cell-warn">56</td><td>3</td><td class="cell-warn">56.6%</td><td>3.0%</td></tr>
+        <tr><td>1</td><td>85</td><td>25</td><td class="cell-danger">56</td><td>4</td><td class="cell-danger">65.9%</td><td>4.7%</td></tr>
+        <tr><td>2</td><td>99</td><td>37</td><td class="cell-warn">57</td><td>5</td><td class="cell-warn">57.6%</td><td>5.1%</td></tr>
+        <tr><td>3</td><td>92</td><td>34</td><td class="cell-warn">56</td><td>2</td><td class="cell-warn">60.9%</td><td>2.2%</td></tr>
+        <tr><td>4</td><td>203</td><td>78</td><td>74</td><td>51</td><td>36.5%</td><td>25.1%</td></tr>
+        <tr><td>5</td><td>445</td><td>185</td><td>84</td><td class="cell-warn">176</td><td>18.9%</td><td class="cell-warn">39.6%</td></tr>
+        <tr><td>6</td><td>398</td><td>167</td><td>86</td><td class="cell-warn">145</td><td>21.6%</td><td class="cell-warn">36.4%</td></tr>
+        <tr><td>7</td><td>406</td><td>174</td><td>63</td><td class="cell-danger">169</td><td>15.5%</td><td class="cell-danger">41.6%</td></tr>
+        <tr><td>8</td><td>423</td><td>155</td><td>90</td><td class="cell-danger">178</td><td>21.3%</td><td class="cell-danger">42.1%</td></tr>
+        <tr><td>9</td><td>431</td><td>173</td><td>83</td><td class="cell-danger">175</td><td>19.3%</td><td class="cell-danger">40.6%</td></tr>
+        <tr><td>10</td><td>243</td><td>116</td><td>65</td><td>62</td><td>26.7%</td><td>25.5%</td></tr>
+        <tr><td>11</td><td>171</td><td>115</td><td>41</td><td>15</td><td>24.0%</td><td>8.8%</td></tr>
+        <tr><td>12</td><td>184</td><td>121</td><td>44</td><td>19</td><td>23.9%</td><td>10.3%</td></tr>
+        <tr><td>13</td><td>160</td><td>89</td><td>53</td><td>18</td><td>33.1%</td><td>11.3%</td></tr>
+        <tr><td>14</td><td>136</td><td>88</td><td>37</td><td>11</td><td>27.2%</td><td>8.1%</td></tr>
+        <tr><td>15</td><td>171</td><td>102</td><td>48</td><td>21</td><td>28.1%</td><td>12.3%</td></tr>
+        <tr><td>16</td><td>159</td><td>91</td><td>46</td><td>22</td><td>28.9%</td><td>13.8%</td></tr>
+        <tr><td>17</td><td>418</td><td>151</td><td class="cell-danger">232</td><td>35</td><td class="cell-danger">55.5%</td><td>8.4%</td></tr>
+        <tr><td class="cell-bold">18</td><td class="cell-bold">510</td><td>164</td><td class="cell-danger">322</td><td>24</td><td class="cell-danger">63.1%</td><td>4.7%</td></tr>
+        <tr><td>19</td><td>473</td><td>166</td><td class="cell-danger">283</td><td>24</td><td class="cell-danger">59.8%</td><td>5.1%</td></tr>
+        <tr><td>20</td><td>492</td><td>161</td><td class="cell-danger">290</td><td>41</td><td class="cell-danger">58.9%</td><td>8.3%</td></tr>
+        <tr><td>21</td><td>449</td><td>142</td><td class="cell-danger">265</td><td>42</td><td class="cell-danger">59.0%</td><td>9.4%</td></tr>
+        <tr><td>22</td><td>304</td><td>154</td><td>138</td><td>12</td><td class="cell-warn">45.4%</td><td>3.9%</td></tr>
+        <tr><td>23</td><td>194</td><td>103</td><td>81</td><td>10</td><td>41.8%</td><td>5.2%</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="insight-box">
+    <div class="insight-label">Insights Drawn</div>
+    <ul>
+      <li class="flag-danger"><strong>Hour 18 (6 PM)</strong> is the single busiest slot with <strong>510 requests</strong>, yet 63.1% — 322 riders — find no car. This is the highest-volume, highest-failure intersection in the dataset.</li>
+      <li class="flag-danger">Evening window <strong>17–21h</strong> sustains no-car rates of 55–63%, representing a 5-hour unbroken supply blackout accounting for ~1,400 unmet requests.</li>
+      <li class="flag-warn">Morning window <strong>5–9h</strong> is the cancellation hotspot: rates spike to 39–42%, despite relatively low no-car rates. Drivers are available but trips are being rejected — classic sign of short-trip avoidance or surge-price friction.</li>
+      <li class="flag-good">Mid-day hours <strong>11–16h</strong> are the healthiest window, with cancellations &lt;14% and no-car rates &lt;30%. Driver deployment during these hours should serve as the baseline target for other windows.</li>
+    </ul>
+  </div>
+</div>
+<div class="section-divider"></div>
+
+<!-- ═══════════════════════════════════════════════════════
+     QUERY 4
+═══════════════════════════════════════════════════════ -->
+<div class="query-section">
+  <div class="query-header">
+    <div class="qnum">Q 04</div>
+    <div class="query-meta">
+      <div class="query-title">Time-Slot × Pickup Point Service Matrix</div>
+      <div class="query-desc">Cross-dimensional analysis · Where and when service quality diverges most sharply</div>
+    </div>
+  </div>
+
+  <div class="sql-wrap">
+    <div class="sql-bar">
+      <div class="dot d1"></div><div class="dot d2"></div><div class="dot d3"></div>
+      <div class="sql-lang">SQL — DuckDB</div>
+    </div>
+    <div class="sql-code"><span class="kw">SELECT</span>
+    <span class="kw">CASE</span>
+        <span class="kw">WHEN</span> <span class="str">"Request hour"</span> <span class="kw">BETWEEN</span>  <span class="num">0</span> <span class="kw">AND</span>  <span class="num">5</span> <span class="kw">THEN</span> <span class="str">'Night (0–5h)'</span>
+        <span class="kw">WHEN</span> <span class="str">"Request hour"</span> <span class="kw">BETWEEN</span>  <span class="num">6</span> <span class="kw">AND</span> <span class="num">11</span> <span class="kw">THEN</span> <span class="str">'Morning (6–11h)'</span>
+        <span class="kw">WHEN</span> <span class="str">"Request hour"</span> <span class="kw">BETWEEN</span> <span class="num">12</span> <span class="kw">AND</span> <span class="num">16</span> <span class="kw">THEN</span> <span class="str">'Afternoon (12–16h)'</span>
+        <span class="kw">WHEN</span> <span class="str">"Request hour"</span> <span class="kw">BETWEEN</span> <span class="num">17</span> <span class="kw">AND</span> <span class="num">20</span> <span class="kw">THEN</span> <span class="str">'Evening (17–20h)'</span>
+        <span class="kw">ELSE</span>                                        <span class="str">'Late Night (21–23h)'</span>
+    <span class="kw">END</span>                                                 <span class="kw">AS</span> time_slot,
+    <span class="str">"Pickup point"</span>,
+    <span class="fn">COUNT</span>(<span class="op">*</span>)                                          <span class="kw">AS</span> requests,
+    <span class="fn">SUM</span>(<span class="kw">CASE WHEN</span> Status <span class="op">=</span> <span class="str">'Trip Completed'</span>    <span class="kw">THEN</span> <span class="num">1</span> <span class="kw">ELSE</span> <span class="num">0</span> <span class="kw">END</span>) <span class="kw">AS</span> completed,
+    <span class="fn">SUM</span>(<span class="kw">CASE WHEN</span> Status <span class="op">=</span> <span class="str">'No Cars Available'</span> <span class="kw">THEN</span> <span class="num">1</span> <span class="kw">ELSE</span> <span class="num">0</span> <span class="kw">END</span>) <span class="kw">AS</span> no_cars,
+    <span class="fn">ROUND</span>(<span class="fn">SUM</span>(<span class="kw">CASE WHEN</span> Status <span class="op">=</span> <span class="str">'Trip Completed'</span>    <span class="kw">THEN</span> <span class="num">1</span> <span class="kw">ELSE</span> <span class="num">0</span> <span class="kw">END</span>) <span class="op">*</span> <span class="num">100.0</span> <span class="op">/</span> <span class="fn">COUNT</span>(<span class="op">*</span>), <span class="num">1</span>) <span class="kw">AS</span> completion_pct,
+    <span class="fn">ROUND</span>(<span class="fn">SUM</span>(<span class="kw">CASE WHEN</span> Status <span class="op">=</span> <span class="str">'No Cars Available'</span> <span class="kw">THEN</span> <span class="num">1</span> <span class="kw">ELSE</span> <span class="num">0</span> <span class="kw">END</span>) <span class="op">*</span> <span class="num">100.0</span> <span class="op">/</span> <span class="fn">COUNT</span>(<span class="op">*</span>), <span class="num">1</span>) <span class="kw">AS</span> no_car_pct
+<span class="kw">FROM</span> rides
+<span class="kw">GROUP BY</span> time_slot, <span class="str">"Pickup point"</span>
+<span class="kw">ORDER BY</span> time_slot, <span class="str">"Pickup point"</span>;</div>
+  </div>
+
+  <div class="results-wrap">
+    <table>
+      <thead>
+        <tr><th>Time Slot</th><th>Pickup Point</th><th>Requests</th><th>Completed</th><th>No Cars</th><th>Completion %</th><th>No Car %</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Afternoon (12–16h)</td><td>Airport</td><td>339</td><td class="cell-good">225</td><td>64</td><td class="cell-good">66.4%</td><td>18.9%</td></tr>
+        <tr><td>Afternoon (12–16h)</td><td>City</td><td>471</td><td>266</td><td>164</td><td class="cell-good">56.5%</td><td>34.8%</td></tr>
+        <tr><td>Evening (17–20h)</td><td>Airport</td><td class="cell-bold">1,457</td><td>312</td><td class="cell-danger">1,067</td><td class="cell-danger">21.4%</td><td class="cell-danger">73.2%</td></tr>
+        <tr><td>Evening (17–20h)</td><td>City</td><td>436</td><td class="cell-good">330</td><td>60</td><td class="cell-good">75.7%</td><td>13.8%</td></tr>
+        <tr><td>Late Night (21–23h)</td><td>Airport</td><td>624</td><td>203</td><td class="cell-warn">390</td><td class="cell-warn">32.5%</td><td class="cell-warn">62.5%</td></tr>
+        <tr><td>Late Night (21–23h)</td><td>City</td><td>323</td><td>196</td><td>94</td><td>60.7%</td><td>29.1%</td></tr>
+        <tr><td>Morning (6–11h)</td><td>Airport</td><td>473</td><td class="cell-good">399</td><td>41</td><td class="cell-good">84.4%</td><td>8.7%</td></tr>
+        <tr><td>Morning (6–11h)</td><td>City</td><td>1,599</td><td>501</td><td>387</td><td class="cell-warn">31.3%</td><td>24.2%</td></tr>
+        <tr><td>Night (0–5h)</td><td>Airport</td><td>345</td><td>188</td><td>151</td><td>54.5%</td><td>43.8%</td></tr>
+        <tr><td>Night (0–5h)</td><td>City</td><td>678</td><td>211</td><td>232</td><td class="cell-warn">31.1%</td><td>34.2%</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="insight-box">
+    <div class="insight-label">Insights Drawn</div>
+    <ul>
+      <li class="flag-danger"><strong>Airport Evening (17–20h)</strong> is the most critical cell in the matrix: 1,457 requests (the highest volume of any cell), yet only 21.4% complete. This single slot represents the core of Uber's demand gap — ~1,140 failed rides in 4 hours daily.</li>
+      <li class="flag-good">Contrast this with <strong>City Evening (17–20h)</strong> which achieves <strong>75.7% completion</strong> on 436 requests. The same time window, opposite experience — confirming the Airport supply gap is geographic, not temporal.</li>
+      <li class="flag-good"><strong>Airport Morning (6–11h)</strong> is the gold standard at <strong>84.4% completion</strong> — the best slot in the entire dataset. Studying what makes morning Airport supply work could inform all other slots.</li>
+      <li class="flag-warn">City Morning (6–11h) handles <strong>1,599 requests</strong> but only completes 31.3%, driven by high cancellation volume — drivers are available at City but rejecting rides during the morning rush.</li>
+    </ul>
+  </div>
+</div>
+<div class="section-divider"></div>
+
+<!-- ═══════════════════════════════════════════════════════
+     QUERY 5
+═══════════════════════════════════════════════════════ -->
+<div class="query-section">
+  <div class="query-header">
+    <div class="qnum">Q 05</div>
+    <div class="query-meta">
+      <div class="query-title">Top 12 Supply Gap Slots — Hour × Pickup Point</div>
+      <div class="query-desc">Driver shortage map · Ranks the worst hour-location combinations by no-driver rate</div>
+    </div>
+  </div>
+
+  <div class="sql-wrap">
+    <div class="sql-bar">
+      <div class="dot d1"></div><div class="dot d2"></div><div class="dot d3"></div>
+      <div class="sql-lang">SQL — DuckDB</div>
+    </div>
+    <div class="sql-code"><span class="kw">SELECT</span>
+    <span class="str">"Request hour"</span>,
+    <span class="str">"Pickup point"</span>,
+    <span class="fn">COUNT</span>(<span class="op">*</span>)                                                                    <span class="kw">AS</span> total,
+    <span class="fn">SUM</span>(<span class="kw">CASE WHEN</span> <span class="str">"Has driver"</span> <span class="op">=</span> <span class="kw">FALSE</span> <span class="kw">THEN</span> <span class="num">1</span> <span class="kw">ELSE</span> <span class="num">0</span> <span class="kw">END</span>)                     <span class="kw">AS</span> no_driver_requests,
+    <span class="fn">ROUND</span>(<span class="fn">SUM</span>(<span class="kw">CASE WHEN</span> <span class="str">"Has driver"</span> <span class="op">=</span> <span class="kw">FALSE</span> <span class="kw">THEN</span> <span class="num">1</span> <span class="kw">ELSE</span> <span class="num">0</span> <span class="kw">END</span>) <span class="op">*</span> <span class="num">100.0</span> <span class="op">/</span> <span class="fn">COUNT</span>(<span class="op">*</span>), <span class="num">1</span>) <span class="kw">AS</span> supply_gap_pct
+<span class="kw">FROM</span> rides
+<span class="kw">GROUP BY</span> <span class="str">"Request hour"</span>, <span class="str">"Pickup point"</span>
+<span class="kw">ORDER BY</span> supply_gap_pct <span class="kw">DESC</span>
+<span class="kw">LIMIT</span> <span class="num">12</span>;</div>
+  </div>
+
+  <div class="results-wrap">
+    <table>
+      <thead>
+        <tr><th>Hour</th><th>Pickup Point</th><th>Total Requests</th><th>No Driver Requests</th><th>Supply Gap %</th></tr>
+      </thead>
+      <tbody>
+        <tr><td class="cell-bold">18</td><td><span class="pill pill-red">Airport</span></td><td>405</td><td class="cell-danger">309</td><td class="cell-danger">76.3%</td></tr>
+        <tr><td>21</td><td><span class="pill pill-red">Airport</span></td><td>343</td><td class="cell-danger">254</td><td class="cell-danger">74.1%</td></tr>
+        <tr><td>19</td><td><span class="pill pill-red">Airport</span></td><td>366</td><td class="cell-danger">268</td><td class="cell-danger">73.2%</td></tr>
+        <tr><td>20</td><td><span class="pill pill-red">Airport</span></td><td>378</td><td class="cell-danger">275</td><td class="cell-danger">72.8%</td></tr>
+        <tr><td>17</td><td><span class="pill pill-red">Airport</span></td><td>308</td><td class="cell-danger">215</td><td class="cell-danger">69.8%</td></tr>
+        <tr><td>1</td><td><span class="pill pill-red">Airport</span></td><td>42</td><td class="cell-warn">29</td><td class="cell-warn">69.0%</td></tr>
+        <tr><td>3</td><td><span class="pill pill-red">Airport</span></td><td>45</td><td class="cell-warn">30</td><td class="cell-warn">66.7%</td></tr>
+        <tr><td>1</td><td><span class="pill pill-blue">City</span></td><td>43</td><td class="cell-warn">27</td><td class="cell-warn">62.8%</td></tr>
+        <tr><td>2</td><td><span class="pill pill-red">Airport</span></td><td>41</td><td class="cell-warn">25</td><td class="cell-warn">61.0%</td></tr>
+        <tr><td>0</td><td><span class="pill pill-red">Airport</span></td><td>53</td><td class="cell-warn">30</td><td class="cell-warn">56.6%</td></tr>
+        <tr><td>0</td><td><span class="pill pill-blue">City</span></td><td>46</td><td class="cell-warn">26</td><td class="cell-warn">56.5%</td></tr>
+        <tr><td>3</td><td><span class="pill pill-blue">City</span></td><td>47</td><td class="cell-warn">26</td><td class="cell-warn">55.3%</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="insight-box">
+    <div class="insight-label">Insights Drawn</div>
+    <ul>
+      <li class="flag-danger"><strong>9 out of 12 worst supply-gap slots are at Airport</strong>, and 5 of the top 7 are consecutive evening hours (17–21h) — confirming a predictable, recurring blackout, not random shortfall.</li>
+      <li class="flag-danger">Airport 18:00 holds the record at <strong>76.3% no-driver rate</strong>: for every 4 people requesting a ride from Airport at 6 PM, only 1 gets a driver. This is the most urgently actionable slot.</li>
+      <li class="flag-warn">Night slots (0–3h) at both Airport and City feature high gap rates (55–67%), but their lower absolute volumes (41–53 requests each) make them a secondary priority versus the high-volume evening crisis.</li>
+      <li>The precise, predictable nature of this gap (same location, same 5-hour window, every day) makes it <strong>ideal for algorithmic incentive triggers</strong> — surge bonuses that activate automatically at 16:45 at Airport.</li>
+    </ul>
+  </div>
+</div>
+<div class="section-divider"></div>
+
+<!-- ═══════════════════════════════════════════════════════
+     QUERY 6
+═══════════════════════════════════════════════════════ -->
+<div class="query-section">
+  <div class="query-header">
+    <div class="qnum">Q 06</div>
+    <div class="query-meta">
+      <div class="query-title">Daily Request Volume & Outcome Trend (5-Day Window)</div>
+      <div class="query-desc">Temporal drift · Are conditions improving or deteriorating day over day?</div>
+    </div>
+  </div>
+
+  <div class="sql-wrap">
+    <div class="sql-bar">
+      <div class="dot d1"></div><div class="dot d2"></div><div class="dot d3"></div>
+      <div class="sql-lang">SQL — DuckDB</div>
+    </div>
+    <div class="sql-code"><span class="kw">SELECT</span>
+    <span class="fn">CAST</span>(<span class="str">"Request date"</span> <span class="kw">AS</span> DATE)                                              <span class="kw">AS</span> ride_date,
+    <span class="fn">COUNT</span>(<span class="op">*</span>)                                                                  <span class="kw">AS</span> total_requests,
+    <span class="fn">SUM</span>(<span class="kw">CASE WHEN</span> Status <span class="op">=</span> <span class="str">'Trip Completed'</span>    <span class="kw">THEN</span> <span class="num">1</span> <span class="kw">ELSE</span> <span class="num">0</span> <span class="kw">END</span>)      <span class="kw">AS</span> completed,
+    <span class="fn">SUM</span>(<span class="kw">CASE WHEN</span> Status <span class="op">=</span> <span class="str">'No Cars Available'</span> <span class="kw">THEN</span> <span class="num">1</span> <span class="kw">ELSE</span> <span class="num">0</span> <span class="kw">END</span>)      <span class="kw">AS</span> no_cars,
+    <span class="fn">SUM</span>(<span class="kw">CASE WHEN</span> Status <span class="op">=</span> <span class="str">'Cancelled'</span>         <span class="kw">THEN</span> <span class="num">1</span> <span class="kw">ELSE</span> <span class="num">0</span> <span class="kw">END</span>)      <span class="kw">AS</span> cancelled,
+    <span class="fn">ROUND</span>(<span class="fn">SUM</span>(<span class="kw">CASE WHEN</span> Status <span class="op">=</span> <span class="str">'No Cars Available'</span> <span class="kw">THEN</span> <span class="num">1</span> <span class="kw">ELSE</span> <span class="num">0</span> <span class="kw">END</span>) <span class="op">*</span> <span class="num">100.0</span> <span class="op">/</span> <span class="fn">COUNT</span>(<span class="op">*</span>), <span class="num">1</span>) <span class="kw">AS</span> no_car_pct,
+    <span class="fn">ROUND</span>(<span class="fn">SUM</span>(<span class="kw">CASE WHEN</span> Status <span class="op">=</span> <span class="str">'Trip Completed'</span>    <span class="kw">THEN</span> <span class="num">1</span> <span class="kw">ELSE</span> <span class="num">0</span> <span class="kw">END</span>) <span class="op">*</span> <span class="num">100.0</span> <span class="op">/</span> <span class="fn">COUNT</span>(<span class="op">*</span>), <span class="num">1</span>) <span class="kw">AS</span> completion_pct
+<span class="kw">FROM</span> rides
+<span class="kw">GROUP BY</span> <span class="fn">CAST</span>(<span class="str">"Request date"</span> <span class="kw">AS</span> DATE)
+<span class="kw">ORDER BY</span> ride_date;</div>
+  </div>
+
+  <div class="results-wrap">
+    <table>
+      <thead>
+        <tr><th>Ride Date</th><th>Total Requests</th><th>Completed</th><th>No Cars</th><th>Cancelled</th><th>No Car %</th><th>Completion %</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>2016-07-11</td><td>1,367</td><td class="cell-good">601</td><td>504</td><td>262</td><td>36.9%</td><td class="cell-good">44.0%</td></tr>
+        <tr><td>2016-07-12</td><td>1,307</td><td class="cell-good">562</td><td>505</td><td>240</td><td class="cell-warn">38.6%</td><td class="cell-good">43.0%</td></tr>
+        <tr><td>2016-07-13</td><td>1,337</td><td class="cell-good">577</td><td>490</td><td>270</td><td>36.6%</td><td class="cell-good">43.2%</td></tr>
+        <tr><td>2016-07-14</td><td>1,353</td><td class="cell-warn">530</td><td class="cell-danger">571</td><td>252</td><td class="cell-danger">42.2%</td><td class="cell-warn">39.2%</td></tr>
+        <tr><td>2016-07-15</td><td class="cell-bold">1,381</td><td class="cell-warn">561</td><td class="cell-danger">580</td><td>240</td><td class="cell-danger">42.0%</td><td class="cell-warn">40.6%</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="insight-box">
+    <div class="insight-label">Insights Drawn</div>
+    <ul>
+      <li class="flag-danger">No-car count escalates significantly across the 5-day window — from <strong>504 (Jul 11) to 580 (Jul 15)</strong>, a <strong>+15.1% increase</strong> in unmet demand. Demand is growing while supply fails to scale with it.</li>
+      <li class="flag-danger">Completion rate drops from <strong>44.0% on Day 1 to 40.6% by Day 5</strong> — a 3.4-point erosion in just 5 days. If this trajectory holds, the completion rate will fall below 35% within two weeks.</li>
+      <li class="flag-warn">July 14 is the inflection point — No Cars jumps from 490 to 571 (+16.5%) in a single day while completions fall by 47 trips. Something changed on Jul 14 (driver log-offs, surge aversion, event) worth investigating.</li>
+      <li class="flag-good">Cancellations remain remarkably stable (240–270 range) across all 5 days, suggesting cancellation behavior is driven by structural driver-acceptance norms rather than day-to-day fluctuations.</li>
+    </ul>
+  </div>
+</div>
+<div class="section-divider"></div>
+
+<!-- ═══════════════════════════════════════════════════════
+     QUERY 7
+═══════════════════════════════════════════════════════ -->
+<div class="query-section">
+  <div class="query-header">
+    <div class="qnum">Q 07</div>
+    <div class="query-meta">
+      <div class="query-title">Trip Duration Statistics by Pickup Point</div>
+      <div class="query-desc">Operational efficiency · Full distribution stats on completed journey times</div>
+    </div>
+  </div>
+
+  <div class="sql-wrap">
+    <div class="sql-bar">
+      <div class="dot d1"></div><div class="dot d2"></div><div class="dot d3"></div>
+      <div class="sql-lang">SQL — DuckDB</div>
+    </div>
+    <div class="sql-code"><span class="kw">SELECT</span>
+    <span class="str">"Pickup point"</span>,
+    <span class="fn">ROUND</span>(<span class="fn">AVG</span>(<span class="str">"Trip duration (mins)"</span>), <span class="num">2</span>)                                       <span class="kw">AS</span> avg_duration_mins,
+    <span class="fn">ROUND</span>(<span class="fn">MIN</span>(<span class="str">"Trip duration (mins)"</span>), <span class="num">2</span>)                                       <span class="kw">AS</span> min_duration_mins,
+    <span class="fn">ROUND</span>(<span class="fn">MAX</span>(<span class="str">"Trip duration (mins)"</span>), <span class="num">2</span>)                                       <span class="kw">AS</span> max_duration_mins,
+    <span class="fn">ROUND</span>(<span class="fn">STDDEV</span>(<span class="str">"Trip duration (mins)"</span>), <span class="num">2</span>)                                    <span class="kw">AS</span> std_dev_mins,
+    <span class="fn">ROUND</span>(<span class="fn">PERCENTILE_CONT</span>(<span class="num">0.25</span>) <span class="kw">WITHIN GROUP</span> (<span class="kw">ORDER BY</span> <span class="str">"Trip duration (mins)"</span>), <span class="num">2</span>) <span class="kw">AS</span> q1_mins,
+    <span class="fn">ROUND</span>(<span class="fn">PERCENTILE_CONT</span>(<span class="num">0.50</span>) <span class="kw">WITHIN GROUP</span> (<span class="kw">ORDER BY</span> <span class="str">"Trip duration (mins)"</span>), <span class="num">2</span>) <span class="kw">AS</span> median_mins,
+    <span class="fn">ROUND</span>(<span class="fn">PERCENTILE_CONT</span>(<span class="num">0.75</span>) <span class="kw">WITHIN GROUP</span> (<span class="kw">ORDER BY</span> <span class="str">"Trip duration (mins)"</span>), <span class="num">2</span>) <span class="kw">AS</span> q3_mins,
+    <span class="fn">COUNT</span>(<span class="op">*</span>)                                                                  <span class="kw">AS</span> completed_trips
+<span class="kw">FROM</span> rides
+<span class="kw">WHERE</span> <span class="str">"Trip duration (mins)"</span> <span class="kw">IS NOT NULL</span>
+<span class="kw">GROUP BY</span> <span class="str">"Pickup point"</span>;</div>
+  </div>
+
+  <div class="results-wrap">
+    <table>
+      <thead>
+        <tr><th>Pickup Point</th><th>Avg Duration</th><th>Min</th><th>Max</th><th>Std Dev</th><th>Q1</th><th>Median</th><th>Q3</th><th>Completed Trips</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="cell-bold">Airport</td>
+          <td class="cell-neutral">52.24 min</td>
+          <td>21.18 min</td>
+          <td>82.07 min</td>
+          <td>13.85</td>
+          <td>41.0 min</td>
+          <td>51.6 min</td>
+          <td>64.0 min</td>
+          <td>1,327</td>
+        </tr>
+        <tr>
+          <td class="cell-bold">City</td>
+          <td class="cell-neutral">52.57 min</td>
+          <td>20.78 min</td>
+          <td>83.00 min</td>
+          <td>13.86</td>
+          <td>41.0 min</td>
+          <td>53.0 min</td>
+          <td>63.88 min</td>
+          <td>1,504</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="insight-box">
+    <div class="insight-label">Insights Drawn</div>
+    <ul>
+      <li>Airport and City have <strong>nearly identical trip duration profiles</strong> — same average (~52 min), same IQR (41–64 min), same standard deviation (13.85–13.86). This indicates a single shared corridor (likely Airport ↔ City), not independent route networks.</li>
+      <li class="flag-warn">Standard deviation of ~14 minutes relative to a 52-minute mean is high (27% CoV), meaning trip times are <strong>highly variable</strong>. A rider could experience anything from 21 to 83 minutes — hard to predict or plan around.</li>
+      <li>The <strong>IQR of 23 minutes</strong> (Q1=41, Q3=64) means the middle 50% of trips fall within a 23-minute range — acceptable for airport transfers but tight for scheduling purposes.</li>
+      <li class="flag-good">The matching distribution confirms that <strong>once a driver is assigned, the service quality is consistent</strong> regardless of pickup location. All performance gaps stem from availability failure, not execution failure.</li>
+    </ul>
+  </div>
+</div>
+<div class="section-divider"></div>
+
+<!-- ═══════════════════════════════════════════════════════
+     QUERY 8
+═══════════════════════════════════════════════════════ -->
+<div class="query-section">
+  <div class="query-header">
+    <div class="qnum">Q 08</div>
+    <div class="query-meta">
+      <div class="query-title">Critical Failure Zones — Hour × Pickup With &gt;65% Total Failure Rate</div>
+      <div class="query-desc">CTE-based triage · Isolates every slot where combined no-cars + cancellations exceed 65%</div>
+    </div>
+  </div>
+
+  <div class="sql-wrap">
+    <div class="sql-bar">
+      <div class="dot d1"></div><div class="dot d2"></div><div class="dot d3"></div>
+      <div class="sql-lang">SQL — DuckDB (CTE)</div>
+    </div>
+    <div class="sql-code"><span class="kw">WITH</span> peak_hours <span class="kw">AS</span> (
+    <span class="kw">SELECT</span>
+        <span class="str">"Request hour"</span>                                                          <span class="kw">AS</span> hour,
+        <span class="str">"Pickup point"</span>                                                          <span class="kw">AS</span> pickup,
+        <span class="fn">COUNT</span>(<span class="op">*</span>)                                                              <span class="kw">AS</span> total,
+        <span class="fn">SUM</span>(<span class="kw">CASE WHEN</span> Status <span class="op">=</span> <span class="str">'No Cars Available'</span> <span class="kw">THEN</span> <span class="num">1</span> <span class="kw">ELSE</span> <span class="num">0</span> <span class="kw">END</span>)    <span class="kw">AS</span> no_cars,
+        <span class="fn">SUM</span>(<span class="kw">CASE WHEN</span> Status <span class="op">=</span> <span class="str">'Cancelled'</span>         <span class="kw">THEN</span> <span class="num">1</span> <span class="kw">ELSE</span> <span class="num">0</span> <span class="kw">END</span>)    <span class="kw">AS</span> cancelled,
+        <span class="fn">ROUND</span>(<span class="fn">SUM</span>(<span class="kw">CASE WHEN</span> Status <span class="op">=</span> <span class="str">'No Cars Available'</span> <span class="kw">THEN</span> <span class="num">1</span> <span class="kw">ELSE</span> <span class="num">0</span> <span class="kw">END</span>) <span class="op">*</span> <span class="num">100.0</span> <span class="op">/</span> <span class="fn">COUNT</span>(<span class="op">*</span>), <span class="num">1</span>) <span class="kw">AS</span> no_car_pct,
+        <span class="fn">ROUND</span>(<span class="fn">SUM</span>(<span class="kw">CASE WHEN</span> Status <span class="op">=</span> <span class="str">'Cancelled'</span>         <span class="kw">THEN</span> <span class="num">1</span> <span class="kw">ELSE</span> <span class="num">0</span> <span class="kw">END</span>) <span class="op">*</span> <span class="num">100.0</span> <span class="op">/</span> <span class="fn">COUNT</span>(<span class="op">*</span>), <span class="num">1</span>) <span class="kw">AS</span> cancel_pct,
+        <span class="fn">ROUND</span>((<span class="fn">SUM</span>(<span class="kw">CASE WHEN</span> Status <span class="op">=</span> <span class="str">'No Cars Available'</span> <span class="kw">THEN</span> <span class="num">1</span> <span class="kw">ELSE</span> <span class="num">0</span> <span class="kw">END</span>)
+              <span class="op">+</span> <span class="fn">SUM</span>(<span class="kw">CASE WHEN</span> Status <span class="op">=</span> <span class="str">'Cancelled'</span>         <span class="kw">THEN</span> <span class="num">1</span> <span class="kw">ELSE</span> <span class="num">0</span> <span class="kw">END</span>)) <span class="op">*</span> <span class="num">100.0</span>
+              <span class="op">/</span> <span class="fn">COUNT</span>(<span class="op">*</span>), <span class="num">1</span>)                                                <span class="kw">AS</span> total_failure_pct
+    <span class="kw">FROM</span> rides
+    <span class="kw">GROUP BY</span> <span class="str">"Request hour"</span>, <span class="str">"Pickup point"</span>
+)
+<span class="kw">SELECT</span> hour, pickup, total, no_cars, cancelled, no_car_pct, cancel_pct, total_failure_pct
+<span class="kw">FROM</span>  peak_hours
+<span class="kw">WHERE</span> total_failure_pct <span class="op">&gt;</span> <span class="num">65</span>
+<span class="kw">ORDER BY</span> total_failure_pct <span class="kw">DESC</span>;</div>
+  </div>
+
+  <div class="results-wrap">
+    <table>
+      <thead>
+        <tr><th>Hour</th><th>Pickup</th><th>Total</th><th>No Cars</th><th>Cancelled</th><th>No Car %</th><th>Cancel %</th><th>Total Failure %</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>21</td><td><span class="pill pill-red">Airport</span></td><td>343</td><td class="cell-danger">254</td><td>28</td><td class="cell-danger">74.1%</td><td>8.2%</td><td class="cell-danger">82.2%</td></tr>
+        <tr><td>20</td><td><span class="pill pill-red">Airport</span></td><td>378</td><td class="cell-danger">275</td><td>29</td><td class="cell-danger">72.8%</td><td>7.7%</td><td class="cell-danger">80.4%</td></tr>
+        <tr><td>18</td><td><span class="pill pill-red">Airport</span></td><td>405</td><td class="cell-danger">309</td><td>15</td><td class="cell-danger">76.3%</td><td>3.7%</td><td class="cell-danger">80.0%</td></tr>
+        <tr><td>19</td><td><span class="pill pill-red">Airport</span></td><td>366</td><td class="cell-danger">268</td><td>15</td><td class="cell-danger">73.2%</td><td>4.1%</td><td class="cell-danger">77.3%</td></tr>
+        <tr><td>17</td><td><span class="pill pill-red">Airport</span></td><td>308</td><td class="cell-danger">215</td><td>19</td><td class="cell-danger">69.8%</td><td>6.2%</td><td class="cell-danger">76.0%</td></tr>
+        <tr><td>8</td><td><span class="pill pill-blue">City</span></td><td>350</td><td>86</td><td class="cell-danger">176</td><td>24.6%</td><td class="cell-danger">50.3%</td><td class="cell-danger">74.9%</td></tr>
+        <tr><td>6</td><td><span class="pill pill-blue">City</span></td><td>309</td><td>82</td><td class="cell-danger">141</td><td>26.5%</td><td class="cell-danger">45.6%</td><td class="cell-danger">72.2%</td></tr>
+        <tr><td>1</td><td><span class="pill pill-blue">City</span></td><td>43</td><td>27</td><td>4</td><td class="cell-warn">62.8%</td><td>9.3%</td><td class="cell-danger">72.1%</td></tr>
+        <tr><td>5</td><td><span class="pill pill-blue">City</span></td><td>353</td><td>81</td><td class="cell-danger">172</td><td>22.9%</td><td class="cell-danger">48.7%</td><td class="cell-danger">71.7%</td></tr>
+        <tr><td>9</td><td><span class="pill pill-blue">City</span></td><td>342</td><td>76</td><td class="cell-danger">167</td><td>22.2%</td><td class="cell-danger">48.8%</td><td class="cell-danger">71.1%</td></tr>
+        <tr><td>7</td><td><span class="pill pill-blue">City</span></td><td>323</td><td>60</td><td class="cell-danger">164</td><td>18.6%</td><td class="cell-danger">50.8%</td><td class="cell-danger">69.3%</td></tr>
+        <tr><td>1</td><td><span class="pill pill-red">Airport</span></td><td>42</td><td>29</td><td>0</td><td class="cell-warn">69.0%</td><td>0.0%</td><td class="cell-warn">69.0%</td></tr>
+        <tr><td>4</td><td><span class="pill pill-blue">City</span></td><td>131</td><td>40</td><td>49</td><td>30.5%</td><td>37.4%</td><td class="cell-warn">67.9%</td></tr>
+        <tr><td>3</td><td><span class="pill pill-red">Airport</span></td><td>45</td><td>30</td><td>0</td><td class="cell-warn">66.7%</td><td>0.0%</td><td class="cell-warn">66.7%</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="insight-box">
+    <div class="insight-label">Insights Drawn</div>
+    <ul>
+      <li class="flag-danger"><strong>14 distinct hour-location combinations</strong> exceed 65% total failure — meaning 2 in 3 riders get nothing in these slots. These are the operational red zones requiring immediate triage.</li>
+      <li class="flag-danger">Airport failures (17–21h) are <strong>supply-dominated</strong>: no-car pct dwarfs cancel pct (69–76% vs 4–8%). The fix is driver presence. City failures (5–9h) are <strong>cancellation-dominated</strong> (45–51% cancel rate) — drivers arrive but reject trips.</li>
+      <li class="flag-warn">Airport 21h has the highest combined failure rate at <strong>82.2%</strong> — only 1 in 5 late-night Airport requests gets a completed trip. This likely reflects post-flight arrivals finding no transport available.</li>
+      <li>The two failure patterns are fundamentally different in nature and therefore require distinct interventions: <strong>Airport evening → supply bonuses &amp; driver routing</strong>; <strong>City morning → acceptance-rate enforcement &amp; short-trip incentives</strong>.</li>
+    </ul>
+  </div>
+</div>
+
+<div class="report-footer">
+  Uber Rides SQL Analysis &nbsp;·&nbsp; 8 Queries &nbsp;·&nbsp; DuckDB Engine &nbsp;·&nbsp; Dataset: 6,745 records &nbsp;·&nbsp; Jul 11–15 2016
+</div>
+
+</div><!-- body-wrap -->
+</body>
+</html>
